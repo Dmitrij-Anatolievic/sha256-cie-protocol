@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hash Generator — SHA-256 + CIE Protocol</title>
+<style>
+  :root {
+    --navy: #1A3A5C; --gold: #C4A020; --lgold: #FDF6DC; --lblue: #EBF3FB;
+    --lgreen: #EBF7ED; --lorange: #FFF4E5; --gray: #F5F5F5;
+    --border: #D0D8E0; --text: #1A1A2E; --muted: #6B7280;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #F0F4F8; color: var(--text); min-height: 100vh; padding: 24px 16px; }
+  .container { max-width: 760px; margin: 0 auto; }
+
+  .header { background: var(--navy); color: white; border-radius: 12px 12px 0 0; padding: 28px 32px 24px; border-bottom: 4px solid var(--gold); }
+  .header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: .02em; margin-bottom: 4px; }
+  .header p { font-size: .85rem; opacity: .75; }
+  .badge { display: inline-block; background: var(--gold); color: var(--navy); font-size: .7rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; margin-top: 10px; letter-spacing: .05em; }
+
+  .card { background: white; padding: 28px 32px; border: 1px solid var(--border); border-top: none; }
+  .card:last-child { border-radius: 0 0 12px 12px; }
+
+  .dropzone { border: 2.5px dashed var(--border); border-radius: 10px; padding: 48px 24px; text-align: center; cursor: pointer; transition: all .2s; background: var(--gray); }
+  .dropzone:hover, .dropzone.dragover { border-color: var(--navy); background: var(--lblue); }
+  .dropzone.dragover { transform: scale(1.01); }
+  .dropzone-icon { font-size: 3rem; margin-bottom: 12px; display: block; }
+  .dropzone h2 { font-size: 1.05rem; color: var(--navy); margin-bottom: 6px; }
+  .dropzone p { font-size: .82rem; color: var(--muted); margin-bottom: 16px; }
+  .btn-select { background: var(--navy); color: white; border: none; padding: 10px 24px; border-radius: 6px; font-size: .9rem; font-weight: 600; cursor: pointer; transition: background .2s; }
+  .btn-select:hover { background: #2a5a9c; }
+  #file-input { display: none; }
+
+  .file-info { background: var(--lblue); border: 1px solid #BDD5EA; border-radius: 8px; padding: 14px 18px; margin-top: 16px; display: none; align-items: center; gap: 12px; }
+  .file-info.visible { display: flex; }
+  .file-icon { font-size: 1.8rem; }
+  .file-details { flex: 1; }
+  .file-name { font-weight: 600; font-size: .95rem; color: var(--navy); word-break: break-all; }
+  .file-size { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+
+  .algo-section { margin-top: 24px; }
+  .algo-section label { display: block; font-weight: 600; font-size: .9rem; color: var(--navy); margin-bottom: 10px; }
+  .algo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+  .algo-card { border: 2px solid var(--border); border-radius: 8px; padding: 12px 14px; cursor: pointer; transition: all .15s; background: var(--gray); }
+  .algo-card:hover { border-color: var(--navy); background: var(--lblue); }
+  .algo-card.selected { border-color: var(--navy); background: var(--lblue); }
+  .algo-name { font-weight: 700; font-size: .9rem; color: var(--navy); }
+  .algo-desc { font-size: .72rem; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .algo-tag { display: inline-block; font-size: .65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 5px; }
+  .tag-required { background: #DCFCE7; color: #166534; }
+  .tag-optional { background: #FEF9C3; color: #713F12; }
+  .tag-advanced { background: #EEF2FF; color: #3730A3; }
+
+  .btn-calc { width: 100%; margin-top: 20px; background: var(--navy); color: white; border: none; padding: 14px; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background .2s; letter-spacing: .02em; }
+  .btn-calc:hover:not(:disabled) { background: #2a5a9c; }
+  .btn-calc:disabled { opacity: .5; cursor: not-allowed; }
+
+  .progress-wrap { margin-top: 16px; display: none; }
+  .progress-wrap.visible { display: block; }
+  .progress-bar-outer { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .progress-bar-inner { height: 100%; background: linear-gradient(90deg, var(--navy), var(--gold)); border-radius: 4px; transition: width .1s; width: 0%; }
+  .progress-label { font-size: .78rem; color: var(--muted); margin-top: 6px; text-align: center; }
+
+  .results { margin-top: 24px; display: none; }
+  .results.visible { display: block; }
+  .result-block { background: var(--lgold); border: 1.5px solid var(--gold); border-radius: 10px; padding: 18px 20px; margin-bottom: 14px; }
+  .result-block.secondary { background: var(--lblue); border-color: #BDD5EA; }
+  .result-block.blake { background: var(--lgreen); border-color: #86EFAC; }
+  .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .result-algo { font-weight: 700; font-size: .9rem; color: var(--navy); }
+  .btn-copy { background: var(--navy); color: white; border: none; padding: 5px 12px; border-radius: 5px; font-size: .75rem; cursor: pointer; font-weight: 600; transition: background .15s; }
+  .btn-copy:hover { background: #2a5a9c; }
+  .btn-copy.copied { background: #166534; }
+  .hash-value { font-family: 'Courier New', monospace; font-size: .78rem; color: #1A1A2E; word-break: break-all; line-height: 1.6; background: rgba(255,255,255,.6); padding: 10px 12px; border-radius: 6px; letter-spacing: .03em; }
+  .hash-length { font-size: .72rem; color: var(--muted); margin-top: 6px; }
+
+  .doc-sha-section { margin-top: 24px; border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; display: none; }
+  .doc-sha-section.visible { display: block; }
+  .doc-sha-header { background: var(--navy); color: white; padding: 12px 18px; font-weight: 700; font-size: .9rem; }
+  .doc-sha-body { padding: 18px; background: var(--gray); }
+  .doc-sha-preview { font-family: 'Courier New', monospace; font-size: .74rem; line-height: 1.8; background: white; padding: 14px; border-radius: 6px; border: 1px solid var(--border); white-space: pre-wrap; word-break: break-all; color: #1A1A2E; }
+  .btn-export { margin-top: 12px; background: var(--gold); color: var(--navy); border: none; padding: 10px 20px; border-radius: 6px; font-size: .85rem; font-weight: 700; cursor: pointer; transition: background .15s; }
+  .btn-export:hover { background: #d4b030; }
+  .timing { font-size: .78rem; color: var(--muted); text-align: right; margin-top: 8px; }
+
+  .info-footer { background: var(--lorange); border: 1px solid #FCD34D; border-radius: 8px; padding: 14px 18px; margin-top: 20px; font-size: .78rem; color: #713F12; line-height: 1.6; }
+  .info-footer strong { color: #92400E; }
+  .footer-credit { text-align: center; margin-top: 20px; font-size: .75rem; color: var(--muted); padding-bottom: 8px; }
+  .footer-credit a { color: var(--navy); text-decoration: none; }
+  .footer-credit a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>Hash Generator — SHA-256 + CIE Protocol</h1>
+    <p>Calculate cryptographic hashes of your file. No data is sent to any server. Works offline.</p>
+    <span class="badge">LAYER 2 OF THE PROTOCOL</span>
+  </div>
+
+  <div class="card">
+
+    <div class="dropzone" id="dropzone">
+      <span class="dropzone-icon">📄</span>
+      <h2>Drop the file to certify here</h2>
+      <p>PDF, image, photographic RAW, document — any file type</p>
+      <button class="btn-select" onclick="document.getElementById('file-input').click()">
+        Or select a file
+      </button>
+      <input type="file" id="file-input">
+    </div>
+
+    <div class="file-info" id="file-info">
+      <div class="file-icon" id="file-icon">📄</div>
+      <div class="file-details">
+        <div class="file-name" id="file-name">—</div>
+        <div class="file-size" id="file-size">—</div>
+      </div>
+    </div>
+
+    <div class="algo-section">
+      <label>Algorithms to compute (you can select more than one)</label>
+      <div class="algo-grid">
+        <div class="algo-card selected" data-algo="sha256" onclick="toggleAlgo(this)">
+          <div class="algo-name">SHA-256</div>
+          <div class="algo-desc">64 characters · Legal standard (eIDAS)</div>
+          <span class="algo-tag tag-required">MANDATORY</span>
+        </div>
+        <div class="algo-card selected" data-algo="sha512" onclick="toggleAlgo(this)">
+          <div class="algo-name">SHA-512</div>
+          <div class="algo-desc">128 characters · Professional variant</div>
+          <span class="algo-tag tag-optional">RECOMMENDED</span>
+        </div>
+        <div class="algo-card" data-algo="blake2b" onclick="toggleAlgo(this)">
+          <div class="algo-name">BLAKE2b</div>
+          <div class="algo-desc">64 characters · Optional additional layer</div>
+          <span class="algo-tag tag-advanced">OPTIONAL</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-calc" id="btn-calc" onclick="calculateHashes()" disabled>
+      ⚡ Calculate Hash
+    </button>
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bar-outer">
+        <div class="progress-bar-inner" id="progress-bar"></div>
+      </div>
+      <div class="progress-label" id="progress-label">Calculating…</div>
+    </div>
+
+    <div class="results" id="results">
+      <div id="result-sha256" class="result-block" style="display:none">
+        <div class="result-header">
+          <span class="result-algo">🔑 SHA-256 <small style="font-weight:400;color:var(--muted)">(mandatory standard)</small></span>
+          <button class="btn-copy" onclick="copyHash('hash-sha256', this)">Copy</button>
+        </div>
+        <div class="hash-value" id="hash-sha256">—</div>
+        <div class="hash-length">64 hexadecimal characters</div>
+      </div>
+
+      <div id="result-sha512" class="result-block secondary" style="display:none">
+        <div class="result-header">
+          <span class="result-algo">🔑 SHA-512</span>
+          <button class="btn-copy" onclick="copyHash('hash-sha512', this)">Copy</button>
+        </div>
+        <div class="hash-value" id="hash-sha512">—</div>
+        <div class="hash-length">128 hexadecimal characters</div>
+      </div>
+
+      <div id="result-blake2b" class="result-block blake" style="display:none">
+        <div class="result-header">
+          <span class="result-algo">🔑 BLAKE2b <small style="font-weight:400;color:var(--muted)">(optional)</small></span>
+          <button class="btn-copy" onclick="copyHash('hash-blake2b', this)">Copy</button>
+        </div>
+        <div class="hash-value" id="hash-blake2b">—</div>
+        <div class="hash-length">64 hexadecimal characters (256-bit variant)</div>
+      </div>
+
+      <div class="timing" id="timing"></div>
+    </div>
+
+    <div class="doc-sha-section" id="doc-sha-section">
+      <div class="doc-sha-header">📋 SHA Document — Layer 3 of the Protocol</div>
+      <div class="doc-sha-body">
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">
+          Pre-formatted text to paste into your SHA Document (separate PDF/A to be signed with your eID card).
+        </p>
+        <div class="doc-sha-preview" id="doc-sha-preview">—</div>
+        <button class="btn-export" onclick="copyDocSHA()">📋 Copy SHA Document text</button>
+        <button class="btn-export" onclick="downloadDocSHA()" style="margin-left:8px;background:var(--navy);color:white;">
+          ⬇ Download as .txt
+        </button>
+      </div>
+    </div>
+
+    <div class="info-footer">
+      <strong>ℹ️ This tool is completely offline.</strong>
+      The calculation takes place entirely in your browser, on your device.
+      No file, no data, no hash is ever sent to external servers.
+      The source code is visible by opening this page with a text editor.
+      <br><br>
+      <strong>SHA-256 is mandatory</strong> as the eIDAS legal standard.
+      SHA-512 is recommended as a secondary hash.
+      BLAKE2b is optional — additional, never a substitute for SHA-256.
+    </div>
+
+  </div>
+
+  <div class="footer-credit">
+    SHA-256 + CIE Protocol · <a href="/cdn-cgi/l/email-protection#e48089858a85908b888d81928d87a48389858d88ca878b89">Dmitrij Anatolievic Musella</a> · Naples 2026 ·
+    <a href="https://medium.com/@dmitrij_musella" target="_blank">medium.com/@dmitrij_musella</a>
+  </div>
+
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+let currentFile = null;
+let selectedAlgos = new Set(['sha256', 'sha512']);
+let results = {};
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) setFile(e.target.files[0]); });
+
+function setFile(file) {
+  currentFile = file;
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('file-size').textContent = formatSize(file.size) + ' (' + file.size.toLocaleString('en-US') + ' bytes)';
+  document.getElementById('file-icon').textContent = getFileIcon(file.name);
+  document.getElementById('file-info').classList.add('visible');
+  document.getElementById('btn-calc').disabled = false;
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('doc-sha-section').classList.remove('visible');
+  results = {};
+}
+
+function getFileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  const icons = { pdf:'📄', jpg:'🖼️', jpeg:'🖼️', png:'🖼️', tiff:'🖼️', tif:'🖼️',
+    nef:'📷', cr2:'📷', cr3:'📷', arw:'📷', orf:'📷', dng:'📷', raf:'📷', rw2:'📷',
+    mp4:'🎬', mov:'🎬', avi:'🎬', mkv:'🎬', doc:'📝', docx:'📝', txt:'📝' };
+  return icons[ext] || '📁';
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(2) + ' KB';
+  if (bytes < 1073741824) return (bytes/1048576).toFixed(2) + ' MB';
+  return (bytes/1073741824).toFixed(2) + ' GB';
+}
+
+function toggleAlgo(card) {
+  const algo = card.dataset.algo;
+  if (algo === 'sha256') return;
+  if (selectedAlgos.has(algo)) { selectedAlgos.delete(algo); card.classList.remove('selected'); }
+  else { selectedAlgos.add(algo); card.classList.add('selected'); }
+}
+
+async function calculateHashes() {
+  if (!currentFile) return;
+  const btn = document.getElementById('btn-calc');
+  btn.disabled = true; btn.textContent = '⏳ Calculating…';
+  const progressWrap = document.getElementById('progress-wrap');
+  const progressBar  = document.getElementById('progress-bar');
+  const progressLabel= document.getElementById('progress-label');
+  progressWrap.classList.add('visible');
+  progressBar.style.width = '0%';
+  const startTime = performance.now();
+  try {
+    const buffer = await readFileAsBuffer(currentFile, pct => {
+      progressBar.style.width = pct + '%';
+      progressLabel.textContent = `Reading file… ${pct}%`;
+    });
+    progressLabel.textContent = 'Computing hashes…';
+    progressBar.style.width = '100%';
+    results = {};
+    for (const algo of [...selectedAlgos]) {
+      progressLabel.textContent = `Computing ${algo.toUpperCase()}…`;
+      results[algo] = await computeHash(buffer, algo);
+    }
+    const elapsed = ((performance.now() - startTime) / 1000).toFixed(3);
+    displayResults(elapsed);
+  } catch (err) { alert('Error: ' + err.message); }
+  finally {
+    btn.disabled = false; btn.textContent = '⚡ Calculate Hash';
+    progressWrap.classList.remove('visible');
+  }
+}
+
+function readFileAsBuffer(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onprogress = e => { if (e.lengthComputable) onProgress(Math.round(e.loaded/e.total*90)); };
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = () => reject(new Error('File read error'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function computeHash(buffer, algo) {
+  if (algo === 'sha256') return bufferToHex(await crypto.subtle.digest('SHA-256', buffer));
+  if (algo === 'sha512') return bufferToHex(await crypto.subtle.digest('SHA-512', buffer));
+  if (algo === 'blake2b') return '__OFFLINE__';
+  throw new Error('Unsupported algorithm: ' + algo);
+}
+
+function bufferToHex(buffer) {
+  return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function displayResults(elapsed) {
+  document.getElementById('results').classList.add('visible');
+  if (results.sha256) {
+    document.getElementById('hash-sha256').textContent = results.sha256;
+    document.getElementById('result-sha256').style.display = 'block';
+  }
+  if (results.sha512) {
+    document.getElementById('hash-sha512').textContent = results.sha512;
+    document.getElementById('result-sha512').style.display = 'block';
+  }
+  if (results.blake2b) {
+    const el = document.getElementById('result-blake2b');
+    if (results.blake2b === '__OFFLINE__') {
+      document.getElementById('hash-blake2b').textContent =
+        'BLAKE2b not available in the browser.\n' +
+        'On Linux/Mac: b2sum -l 256 "filename"\n' +
+        'Or: python3 -c "import hashlib; print(hashlib.blake2b(open(\'file\',\'rb\').read(), digest_size=32).hexdigest())"';
+      el.style.background = '#F9FAFB';
+    } else {
+      document.getElementById('hash-blake2b').textContent = results.blake2b;
+    }
+    el.style.display = 'block';
+  }
+  document.getElementById('timing').textContent = `⏱️ Computed in ${elapsed}s`;
+  buildDocSHA();
+  document.getElementById('doc-sha-section').classList.add('visible');
+}
+
+function buildDocSHA() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  let text = `SHA DOCUMENT — SHA-256 + CIE PROTOCOL\n${'═'.repeat(60)}\n\n`;
+  text += `Certified file:  ${currentFile.name}\n`;
+  text += `File size:       ${formatSize(currentFile.size)} (${currentFile.size.toLocaleString('en-US')} bytes)\n`;
+  text += `Calculation date: ${dateStr}\n`;
+  text += `Calculation time: ${timeStr}\n\n`;
+  text += `${'─'.repeat(60)}\nSHA-256 HASH (mandatory standard — 64 characters)\n${'─'.repeat(60)}\n${results.sha256 || 'Not calculated'}\n\n`;
+  if (results.sha512) {
+    text += `${'─'.repeat(60)}\nSHA-512 HASH (professional variant — 128 characters)\n${'─'.repeat(60)}\n${results.sha512.substring(0,64)}\n${results.sha512.substring(64)}\n\n`;
+  }
+  if (results.blake2b && results.blake2b !== '__OFFLINE__') {
+    text += `${'─'.repeat(60)}\nBLAKE2b-256 HASH (optional additional layer — 64 characters)\n${'─'.repeat(60)}\n${results.blake2b}\n\n`;
+  }
+  text += `${'═'.repeat(60)}\nOPERATIONAL INSTRUCTIONS (Layer 3 of the Protocol)\n${'═'.repeat(60)}\n\n`;
+  text += `1. Export this document as PDF/A\n`;
+  text += `2. Sign the PDF with your eID card (CIE) using Firma4NG (PC) or CieSign (smartphone)\n`;
+  text += `3. Sign the Authenticity Certificate with your eID card as well\n`;
+  text += `4. Send both signed PDFs to yourself via certified email (PEC)\n`;
+  text += `5. Keep the files on at least 3 separate physical media (3-2-1 rule)\n\n`;
+  text += `SHA-256 + CIE Protocol — Dmitrij Anatolievic Musella — Naples 2026\ndmanatolievic@gmail.com`;
+  document.getElementById('doc-sha-preview').textContent = text;
+  window._docSHAText = text;
+}
+
+function copyHash(elementId, btn) {
+  navigator.clipboard.writeText(document.getElementById(elementId).textContent).then(() => {
+    btn.textContent = '✓ Copied'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+function copyDocSHA() {
+  navigator.clipboard.writeText(window._docSHAText).then(() => alert('SHA Document text copied to clipboard!'));
+}
+function downloadDocSHA() {
+  const safeName = currentFile.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+  const blob = new Blob([window._docSHAText], {type:'text/plain;charset=utf-8'});
+  const a

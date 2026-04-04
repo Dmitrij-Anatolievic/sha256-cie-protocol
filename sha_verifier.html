@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verifica Certificato — Protocollo SHA-256 + CIE</title>
+<style>
+  :root {
+    --navy: #1A3A5C;
+    --gold: #C4A020;
+    --lgold: #FDF6DC;
+    --lblue: #EBF3FB;
+    --gray: #F5F5F5;
+    --border: #D0D8E0;
+    --text: #1A1A2E;
+    --muted: #6B7280;
+    --green: #166534;
+    --lgreen: #DCFCE7;
+    --bgreen: #16A34A;
+    --red: #991B1B;
+    --lred: #FEE2E2;
+    --bred: #DC2626;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #F0F4F8;
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px;
+  }
+  .container { max-width: 680px; margin: 0 auto; }
+
+  .header {
+    background: var(--navy);
+    color: white;
+    border-radius: 12px 12px 0 0;
+    padding: 28px 32px 24px;
+    border-bottom: 4px solid var(--gold);
+    text-align: center;
+  }
+  .header h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 6px; }
+  .header p { font-size: 0.85rem; opacity: 0.75; }
+  .badge {
+    display: inline-block;
+    background: var(--gold);
+    color: var(--navy);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-top: 10px;
+    letter-spacing: 0.05em;
+  }
+
+  .card {
+    background: white;
+    padding: 28px 32px;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+  }
+
+  .step {
+    margin-bottom: 28px;
+  }
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: var(--navy);
+    color: white;
+    border-radius: 50%;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+  .step-title {
+    display: flex;
+    align-items: center;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--navy);
+    margin-bottom: 12px;
+  }
+
+  /* Drop zone */
+  .dropzone {
+    border: 2.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 36px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--gray);
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--navy);
+    background: var(--lblue);
+  }
+  .dropzone-icon { font-size: 2.5rem; margin-bottom: 10px; display: block; }
+  .dropzone h3 { font-size: 0.95rem; color: var(--navy); margin-bottom: 4px; }
+  .dropzone p { font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; }
+  .btn-select {
+    background: var(--navy);
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #file-input-v { display: none; }
+
+  .file-loaded {
+    background: var(--lblue);
+    border: 1px solid #BDD5EA;
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .file-loaded.visible { display: flex; }
+  .file-loaded-name { font-weight: 600; font-size: 0.9rem; color: var(--navy); word-break: break-all; flex: 1; }
+  .file-loaded-size { font-size: 0.75rem; color: var(--muted); }
+
+  /* Hash input */
+  .hash-input-wrap { position: relative; }
+  textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    resize: vertical;
+    color: var(--text);
+    transition: border-color 0.15s;
+    min-height: 80px;
+  }
+  textarea:focus { outline: none; border-color: var(--navy); }
+  .hash-hint {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* Algo select */
+  .algo-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .algo-pill {
+    border: 2px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--gray);
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+  .algo-pill.active {
+    border-color: var(--navy);
+    background: var(--navy);
+    color: white;
+  }
+
+  /* Verify button */
+  .btn-verify {
+    width: 100%;
+    padding: 16px;
+    background: var(--navy);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+    letter-spacing: 0.02em;
+    margin-top: 8px;
+  }
+  .btn-verify:hover:not(:disabled) { background: #2a5a9c; }
+  .btn-verify:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* Progress */
+  .progress-wrap { display: none; margin-top: 12px; }
+  .progress-wrap.visible { display: block; }
+  .progress-bar-outer {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-bar-inner {
+    height: 100%;
+    background: linear-gradient(90deg, var(--navy), var(--gold));
+    border-radius: 3px;
+    transition: width 0.1s;
+    width: 0%;
+  }
+
+  /* RESULT — the semaforo */
+  .semaforo {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    padding: 36px 24px;
+    border-radius: 12px;
+    margin-top: 24px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+  .semaforo.visible { display: flex; }
+  .semaforo.ok {
+    background: var(--lgreen);
+    border: 3px solid var(--bgreen);
+  }
+  .semaforo.fail {
+    background: var(--lred);
+    border: 3px solid var(--bred);
+  }
+  .semaforo-light {
+    font-size: 5rem;
+    margin-bottom: 12px;
+    line-height: 1;
+  }
+  .semaforo-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .semaforo.ok .semaforo-title { color: var(--green); }
+  .semaforo.fail .semaforo-title { color: var(--red); }
+  .semaforo-text {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    max-width: 440px;
+    color: #374151;
+    margin-bottom: 16px;
+  }
+
+  /* Hash comparison detail */
+  .hash-detail {
+    width: 100%;
+    background: rgba(255,255,255,0.7);
+    border-radius: 8px;
+    padding: 14px;
+    text-align: left;
+    margin-top: 8px;
+  }
+  .hash-row {
+    margin-bottom: 10px;
+  }
+  .hash-row-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  .hash-row-value {
+    font-family: 'Courier New', monospace;
+    font-size: 0.72rem;
+    word-break: break-all;
+    line-height: 1.6;
+    padding: 6px 8px;
+    border-radius: 4px;
+  }
+  .hash-row-value.match { background: #DCFCE7; color: #166534; }
+  .hash-row-value.mismatch { background: #FEE2E2; color: #991B1B; }
+
+  /* Diff highlight */
+  .diff-info {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 8px;
+    font-style: italic;
+  }
+
+  /* Timing */
+  .timing-small {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 12px;
+  }
+
+  /* Info box */
+  .info-box {
+    background: #EFF6FF;
+    border: 1px solid #BFDBFE;
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 0.78rem;
+    color: #1E3A5F;
+    line-height: 1.6;
+    margin-top: 20px;
+  }
+  .info-box strong { color: var(--navy); }
+
+  .footer-credit {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    padding-bottom: 8px;
+  }
+  .footer-credit a { color: var(--navy); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>🔍 Verifica Certificato</h1>
+    <p>Controlla se il tuo file corrisponde all'hash del certificato ricevuto dall'artista.</p>
+    <span class="badge">STRUMENTO PER IL COLLEZIONISTA</span>
+  </div>
+
+  <div class="card">
+
+    <!-- Step 1: File -->
+    <div class="step">
+      <div class="step-title">
+        <span class="step-num">1</span>
+        Carica il file da verificare
+      </div>
+      <div class="dropzone" id="dropzone-v">
+        <span class="dropzone-icon">📄</span>
+        <h3>Trascina qui il certificato PDF</h3>
+        <p>oppure qualsiasi file di cui vuoi verificare l'integrità</p>
+        <button class="btn-select" onclick="document.getElementById('file-input-v').click()">
+          Seleziona file
+        </button>
+        <input type="file" id="file-input-v">
+      </div>
+      <div class="file-loaded" id="file-loaded">
+        <span id="v-icon">📄</span>
+        <div style="flex:1">
+          <div class="file-loaded-name" id="v-name">—</div>
+          <div class="file-loaded-size" id="v-size">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Reference hash -->
+    <div class="step">
+      <div class="step-title">
+        <span class="step-num">2</span>
+        Incolla l'hash di riferimento dal certificato
+      </div>
+      <div class="hash-input-wrap">
+        <textarea id="ref-hash" placeholder="Incolla qui la stringa hash SHA-256 che trovi nel Documento SHA o nel Certificato di Autenticità ricevuto dall'artista..." rows="3"></textarea>
+      </div>
+      <div class="hash-hint">
+        SHA-256: 64 caratteri · SHA-512: 128 caratteri · BLAKE2b-256: 64 caratteri
+      </div>
+      <div class="algo-row">
+        <span class="algo-pill active" data-algo="sha256" onclick="selectAlgo(this)">SHA-256</span>
+        <span class="algo-pill" data-algo="sha512" onclick="selectAlgo(this)">SHA-512</span>
+        <span class="algo-pill" data-algo="blake2b" onclick="selectAlgo(this)">BLAKE2b</span>
+        <span class="algo-pill" data-algo="auto" onclick="selectAlgo(this)">🔄 Auto-detect</span>
+      </div>
+    </div>
+
+    <!-- Step 3: Verify -->
+    <div class="step" style="margin-bottom:0">
+      <div class="step-title">
+        <span class="step-num">3</span>
+        Ottieni la risposta
+      </div>
+      <button class="btn-verify" id="btn-verify" onclick="verify()" disabled>
+        🔍 Verifica integrità
+      </button>
+      <div class="progress-wrap" id="v-progress">
+        <div class="progress-bar-outer">
+          <div class="progress-bar-inner" id="v-progress-bar"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semaforo result -->
+    <div class="semaforo" id="semaforo">
+      <div class="semaforo-light" id="sem-light">🟡</div>
+      <div class="semaforo-title" id="sem-title">In attesa…</div>
+      <div class="semaforo-text" id="sem-text"></div>
+      <div class="hash-detail" id="hash-detail" style="display:none">
+        <div class="hash-row">
+          <div class="hash-row-label">Hash calcolato dal file</div>
+          <div class="hash-row-value" id="calc-hash-display">—</div>
+        </div>
+        <div class="hash-row">
+          <div class="hash-row-label">Hash di riferimento (dal certificato)</div>
+          <div class="hash-row-value" id="ref-hash-display">—</div>
+        </div>
+        <div class="diff-info" id="diff-info"></div>
+      </div>
+      <div class="timing-small" id="v-timing"></div>
+    </div>
+
+    <!-- Info box -->
+    <div class="info-box">
+      <strong>Come funziona.</strong>
+      Il verificatore calcola l'hash crittografico del file che hai caricato e lo confronta con
+      l'hash scritto nel certificato. Se i due valori coincidono, il file è autentico e non è
+      stato modificato dal momento in cui l'artista lo ha firmato.<br><br>
+      <strong>Verde = identico al momento della firma.</strong>
+      <strong>Rosso = il file è diverso</strong> (modificato, corrotto, o è il file sbagliato).<br><br>
+      Nessun dato viene mai inviato a server. Il calcolo avviene interamente nel tuo browser.
+    </div>
+
+  </div><!-- /card -->
+
+  <div class="footer-credit">
+    Protocollo SHA-256 + CIE ·
+    <a href="/cdn-cgi/l/email-protection#284c454946495c4744414d5e414b684f45494144064b4745">Dmitrij Anatolievic Musella</a> · Napoli 2026
+  </div>
+
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+let vFile = null;
+let selectedAlgo = 'sha256';
+
+// ── File handling ─────────────────────────────────────────────────────────────
+const dropzoneV = document.getElementById('dropzone-v');
+const fileInputV = document.getElementById('file-input-v');
+
+dropzoneV.addEventListener('dragover', e => { e.preventDefault(); dropzoneV.classList.add('dragover'); });
+dropzoneV.addEventListener('dragleave', () => dropzoneV.classList.remove('dragover'));
+dropzoneV.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzoneV.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) setVFile(e.dataTransfer.files[0]);
+});
+fileInputV.addEventListener('change', e => { if (e.target.files[0]) setVFile(e.target.files[0]); });
+
+document.getElementById('ref-hash').addEventListener('input', updateBtn);
+
+function setVFile(file) {
+  vFile = file;
+  document.getElementById('v-name').textContent = file.name;
+  document.getElementById('v-size').textContent = formatSize(file.size);
+  document.getElementById('v-icon').textContent = getFileIcon(file.name);
+  document.getElementById('file-loaded').classList.add('visible');
+  hideSemaforo();
+  updateBtn();
+}
+
+function updateBtn() {
+  const hasFile = !!vFile;
+  const hasHash = document.getElementById('ref-hash').value.trim().length > 0;
+  document.getElementById('btn-verify').disabled = !(hasFile && hasHash);
+}
+
+// ── Algorithm selection ───────────────────────────────────────────────────────
+function selectAlgo(pill) {
+  document.querySelectorAll('.algo-pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  selectedAlgo = pill.dataset.algo;
+}
+
+function detectAlgo(hash) {
+  const len = hash.trim().length;
+  if (len === 64) return 'sha256'; // could be sha256 or blake2b-256
+  if (len === 128) return 'sha512';
+  return null;
+}
+
+// ── Verify ────────────────────────────────────────────────────────────────────
+async function verify() {
+  const refHash = document.getElementById('ref-hash').value.trim().toLowerCase();
+  if (!vFile || !refHash) return;
+
+  const btn = document.getElementById('btn-verify');
+  btn.disabled = true;
+  btn.textContent = '⏳ Calcolo in corso…';
+  hideSemaforo();
+
+  const progressWrap = document.getElementById('v-progress');
+  const progressBar = document.getElementById('v-progress-bar');
+  progressWrap.classList.add('visible');
+
+  const startTime = performance.now();
+
+  try {
+    const buffer = await readFileBuffer(vFile, pct => {
+      progressBar.style.width = pct + '%';
+    });
+
+    let algo = selectedAlgo;
+    if (algo === 'auto') algo = detectAlgo(refHash) || 'sha256';
+
+    const calcHash = await computeHash(buffer, algo);
+    const elapsed = ((performance.now() - startTime) / 1000).toFixed(3);
+    const match = calcHash.toLowerCase() === refHash.toLowerCase();
+
+    showSemaforo(match, calcHash, refHash, algo, elapsed);
+
+  } catch (err) {
+    alert('Errore: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Verifica integrità';
+    progressWrap.classList.remove('visible');
+    progressBar.style.width = '0%';
+  }
+}
+
+function showSemaforo(match, calcHash, refHash, algo, elapsed) {
+  const sem = document.getElementById('semaforo');
+  sem.className = 'semaforo visible ' + (match ? 'ok' : 'fail');
+
+  document.getElementById('sem-light').textContent = match ? '🟢' : '🔴';
+  document.getElementById('sem-title').textContent = match
+    ? 'File autentico ✓'
+    : 'File non corrispondente ✗';
+
+  document.getElementById('sem-text').textContent = match
+    ? 'L\'hash calcolato corrisponde perfettamente all\'hash del certificato. Il file è autentico e non è stato modificato dal momento della firma dell\'artista.'
+    : 'L\'hash calcolato NON corrisponde all\'hash del certificato. Il file potrebbe essere stato modificato, corrotto, oppure stai verificando il file sbagliato o usando l\'algoritmo errato.';
+
+  const detail = document.getElementById('hash-detail');
+  detail.style.display = 'block';
+
+  const calcEl = document.getElementById('calc-hash-display');
+  const refEl  = document.getElementById('ref-hash-display');
+  calcEl.textContent = calcHash;
+  refEl.textContent  = refHash;
+  calcEl.className = 'hash-row-value ' + (match ? 'match' : 'mismatch');
+  refEl.className  = 'hash-row-value ' + (match ? 'match' : 'mismatch');
+
+  if (!match) {
+    // Find first differing character
+    let firstDiff = -1;
+    for (let i = 0; i < Math.max(calcHash.length, refHash.length); i++) {
+      if (calcHash[i] !== refHash[i]) { firstDiff = i; break; }
+    }
+    const diffInfo = document.getElementById('diff-info');
+    if (firstDiff >= 0) {
+      diffInfo.textContent = `Prima differenza al carattere ${firstDiff + 1} di ${calcHash.length}. Algoritmo usato: ${algo.toUpperCase()}.`;
+    } else {
+      diffInfo.textContent = `Lunghezze diverse: calcolato ${calcHash.length} caratteri, riferimento ${refHash.length} caratteri.`;
+    }
+  } else {
+    document.getElementById('diff-info').textContent = '';
+  }
+
+  document.getElementById('v-timing').textContent = `⏱️ Calcolato in ${elapsed}s · Algoritmo: ${algo.toUpperCase()}`;
+}
+
+function hideSemaforo() {
+  const sem = document.getElementById('semaforo');
+  sem.className = 'semaforo';
+}
+
+// ── Shared utilities ──────────────────────────────────────────────────────────
+function readFileBuffer(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onprogress = e => { if (e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 95)); };
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = () => reject(new Error('Errore lettura file'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function computeHash(buffer, algo) {
+  if (algo === 'sha256') {
+    const h = await crypto.subtle.digest('SHA-256', buffer);
+    return bufferToHex(h);
+  }
+  if (algo === 'sha512') {
+    const h = await crypto.subtle.digest('SHA-512', buffer);
+    return bufferToHex(h);
+  }
+  if (algo === 'blake2b') {
+    throw new Error('BLAKE2b non disponibile nel browser. Usa il verificatore offline: python3 -c "import hashlib; print(hashlib.blake2b(open(\'file\',\'rb\').read(), digest_size=32).hexdigest())"');
+  }
+  throw new Error('Algoritmo non supportato: ' + algo);
+}
+
+function bufferToHex(buffer) {
+  return Array.from(new Uint8Array(buffer))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(2) + ' KB';
+  if (bytes < 1073741824) return (bytes/1048576).toFixed(2) + ' MB';
+  return (bytes/1073741824).toFixed(2) + ' GB';
+}
+
+function getFileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  const icons = { pdf:'📄', jpg:'🖼️', jpeg:'🖼️', png:'🖼️', tiff:'🖼️', tif:'🖼️',
+    nef:'📷', cr2:'📷', cr3:'📷', arw:'📷', orf:'�

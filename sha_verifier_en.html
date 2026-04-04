@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate Verifier — SHA-256 + CIE Protocol</title>
+<style>
+  :root {
+    --navy:#1A3A5C; --gold:#C4A020; --lgold:#FDF6DC; --lblue:#EBF3FB;
+    --gray:#F5F5F5; --border:#D0D8E0; --text:#1A1A2E; --muted:#6B7280;
+    --green:#166534; --lgreen:#DCFCE7; --bgreen:#16A34A;
+    --red:#991B1B; --lred:#FEE2E2; --bred:#DC2626;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Segoe UI',Arial,sans-serif; background:#F0F4F8; color:var(--text); min-height:100vh; padding:24px 16px; }
+  .container { max-width:680px; margin:0 auto; }
+
+  .header { background:var(--navy); color:white; border-radius:12px 12px 0 0; padding:28px 32px 24px; border-bottom:4px solid var(--gold); text-align:center; }
+  .header h1 { font-size:1.4rem; font-weight:700; margin-bottom:6px; }
+  .header p { font-size:.85rem; opacity:.75; }
+  .badge { display:inline-block; background:var(--gold); color:var(--navy); font-size:.7rem; font-weight:700; padding:3px 10px; border-radius:20px; margin-top:10px; letter-spacing:.05em; }
+
+  .card { background:white; padding:28px 32px; border:1px solid var(--border); border-top:none; border-radius:0 0 12px 12px; }
+  .step { margin-bottom:28px; }
+  .step-num { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; background:var(--navy); color:white; border-radius:50%; font-size:.8rem; font-weight:700; margin-right:8px; flex-shrink:0; }
+  .step-title { display:flex; align-items:center; font-weight:600; font-size:.95rem; color:var(--navy); margin-bottom:12px; }
+
+  .dropzone { border:2.5px dashed var(--border); border-radius:10px; padding:36px 24px; text-align:center; cursor:pointer; transition:all .2s; background:var(--gray); }
+  .dropzone:hover,.dropzone.dragover { border-color:var(--navy); background:var(--lblue); }
+  .dropzone-icon { font-size:2.5rem; margin-bottom:10px; display:block; }
+  .dropzone h3 { font-size:.95rem; color:var(--navy); margin-bottom:4px; }
+  .dropzone p { font-size:.8rem; color:var(--muted); margin-bottom:12px; }
+  .btn-select { background:var(--navy); color:white; border:none; padding:8px 20px; border-radius:6px; font-size:.85rem; font-weight:600; cursor:pointer; }
+  #file-input-v { display:none; }
+
+  .file-loaded { background:var(--lblue); border:1px solid #BDD5EA; border-radius:8px; padding:12px 16px; display:none; align-items:center; gap:10px; margin-top:10px; }
+  .file-loaded.visible { display:flex; }
+  .file-loaded-name { font-weight:600; font-size:.9rem; color:var(--navy); word-break:break-all; flex:1; }
+  .file-loaded-size { font-size:.75rem; color:var(--muted); }
+
+  textarea { width:100%; padding:12px 14px; border:2px solid var(--border); border-radius:8px; font-family:'Courier New',monospace; font-size:.8rem; line-height:1.6; resize:vertical; color:var(--text); transition:border-color .15s; min-height:80px; }
+  textarea:focus { outline:none; border-color:var(--navy); }
+  .hash-hint { font-size:.75rem; color:var(--muted); margin-top:6px; }
+
+  .algo-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .algo-pill { border:2px solid var(--border); border-radius:20px; padding:5px 14px; font-size:.8rem; font-weight:600; cursor:pointer; background:var(--gray); color:var(--muted); transition:all .15s; }
+  .algo-pill.active { border-color:var(--navy); background:var(--navy); color:white; }
+
+  .btn-verify { width:100%; padding:16px; background:var(--navy); color:white; border:none; border-radius:10px; font-size:1.05rem; font-weight:700; cursor:pointer; transition:background .2s; letter-spacing:.02em; margin-top:8px; }
+  .btn-verify:hover:not(:disabled) { background:#2a5a9c; }
+  .btn-verify:disabled { opacity:.45; cursor:not-allowed; }
+
+  .progress-wrap { display:none; margin-top:12px; }
+  .progress-wrap.visible { display:block; }
+  .progress-bar-outer { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+  .progress-bar-inner { height:100%; background:linear-gradient(90deg,var(--navy),var(--gold)); border-radius:3px; transition:width .1s; width:0%; }
+
+  .semaforo { display:none; flex-direction:column; align-items:center; padding:36px 24px; border-radius:12px; margin-top:24px; text-align:center; }
+  .semaforo.visible { display:flex; }
+  .semaforo.ok { background:var(--lgreen); border:3px solid var(--bgreen); }
+  .semaforo.fail { background:var(--lred); border:3px solid var(--bred); }
+  .semaforo-light { font-size:5rem; margin-bottom:12px; line-height:1; }
+  .semaforo-title { font-size:1.6rem; font-weight:700; margin-bottom:8px; }
+  .semaforo.ok .semaforo-title { color:var(--green); }
+  .semaforo.fail .semaforo-title { color:var(--red); }
+  .semaforo-text { font-size:.9rem; line-height:1.6; max-width:440px; color:#374151; margin-bottom:16px; }
+
+  .hash-detail { width:100%; background:rgba(255,255,255,.7); border-radius:8px; padding:14px; text-align:left; margin-top:8px; }
+  .hash-row { margin-bottom:10px; }
+  .hash-row-label { font-size:.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
+  .hash-row-value { font-family:'Courier New',monospace; font-size:.72rem; word-break:break-all; line-height:1.6; padding:6px 8px; border-radius:4px; }
+  .hash-row-value.match { background:#DCFCE7; color:#166534; }
+  .hash-row-value.mismatch { background:#FEE2E2; color:#991B1B; }
+  .diff-info { font-size:.75rem; color:var(--muted); margin-top:8px; font-style:italic; }
+  .timing-small { font-size:.72rem; color:var(--muted); margin-top:12px; }
+
+  .info-box { background:#EFF6FF; border:1px solid #BFDBFE; border-radius:8px; padding:14px 18px; font-size:.78rem; color:#1E3A5F; line-height:1.6; margin-top:20px; }
+  .info-box strong { color:var(--navy); }
+  .footer-credit { text-align:center; margin-top:20px; font-size:.75rem; color:var(--muted); padding-bottom:8px; }
+  .footer-credit a { color:var(--navy); text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>🔍 Certificate Verifier</h1>
+    <p>Check whether your file matches the hash in the certificate received from the artist.</p>
+    <span class="badge">TOOL FOR THE COLLECTOR</span>
+  </div>
+
+  <div class="card">
+
+    <div class="step">
+      <div class="step-title"><span class="step-num">1</span>Load the file to verify</div>
+      <div class="dropzone" id="dropzone-v">
+        <span class="dropzone-icon">📄</span>
+        <h3>Drop the PDF certificate here</h3>
+        <p>or any file whose integrity you want to verify</p>
+        <button class="btn-select" onclick="document.getElementById('file-input-v').click()">Select file</button>
+        <input type="file" id="file-input-v">
+      </div>
+      <div class="file-loaded" id="file-loaded">
+        <span id="v-icon">📄</span>
+        <div style="flex:1">
+          <div class="file-loaded-name" id="v-name">—</div>
+          <div class="file-loaded-size" id="v-size">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title"><span class="step-num">2</span>Paste the reference hash from the certificate</div>
+      <textarea id="ref-hash" placeholder="Paste here the hash string (SHA-256) found in the SHA Document or Authenticity Certificate received from the artist…" rows="3"></textarea>
+      <div class="hash-hint">SHA-256: 64 characters · SHA-512: 128 characters · BLAKE2b-256: 64 characters</div>
+      <div class="algo-row">
+        <span class="algo-pill active" data-algo="sha256" onclick="selectAlgo(this)">SHA-256</span>
+        <span class="algo-pill" data-algo="sha512" onclick="selectAlgo(this)">SHA-512</span>
+        <span class="algo-pill" data-algo="blake2b" onclick="selectAlgo(this)">BLAKE2b</span>
+        <span class="algo-pill" data-algo="auto" onclick="selectAlgo(this)">🔄 Auto-detect</span>
+      </div>
+    </div>
+
+    <div class="step" style="margin-bottom:0">
+      <div class="step-title"><span class="step-num">3</span>Get the answer</div>
+      <button class="btn-verify" id="btn-verify" onclick="verify()" disabled>🔍 Verify integrity</button>
+      <div class="progress-wrap" id="v-progress">
+        <div class="progress-bar-outer">
+          <div class="progress-bar-inner" id="v-progress-bar"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="semaforo" id="semaforo">
+      <div class="semaforo-light" id="sem-light">🟡</div>
+      <div class="semaforo-title" id="sem-title">Waiting…</div>
+      <div class="semaforo-text" id="sem-text"></div>
+      <div class="hash-detail" id="hash-detail" style="display:none">
+        <div class="hash-row">
+          <div class="hash-row-label">Hash computed from file</div>
+          <div class="hash-row-value" id="calc-hash-display">—</div>
+        </div>
+        <div class="hash-row">
+          <div class="hash-row-label">Reference hash (from certificate)</div>
+          <div class="hash-row-value" id="ref-hash-display">—</div>
+        </div>
+        <div class="diff-info" id="diff-info"></div>
+      </div>
+      <div class="timing-small" id="v-timing"></div>
+    </div>
+
+    <div class="info-box">
+      <strong>How it works.</strong>
+      The verifier computes the cryptographic hash of the file you loaded and compares it with
+      the hash written in the certificate. If the two values match, the file is authentic and
+      has not been modified since the artist signed it.<br><br>
+      <strong>Green = identical to the file at the time of signing.</strong>
+      <strong>Red = the file is different</strong> (modified, corrupted, or you are verifying the wrong file or using the wrong algorithm).<br><br>
+      No data is ever sent to any server. The calculation takes place entirely in your browser.
+    </div>
+
+  </div>
+
+  <div class="footer-credit">
+    SHA-256 + CIE Protocol ·
+    <a href="/cdn-cgi/l/email-protection#cfaba2aea1aebba0a3a6aab9a6ac8fa8a2aea6a3e1aca0a2">Dmitrij Anatolievic Musella</a> · Naples 2026
+  </div>
+
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+let vFile = null;
+let selectedAlgo = 'sha256';
+
+const dropzoneV = document.getElementById('dropzone-v');
+const fileInputV = document.getElementById('file-input-v');
+
+dropzoneV.addEventListener('dragover', e => { e.preventDefault(); dropzoneV.classList.add('dragover'); });
+dropzoneV.addEventListener('dragleave', () => dropzoneV.classList.remove('dragover'));
+dropzoneV.addEventListener('drop', e => {
+  e.preventDefault(); dropzoneV.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) setVFile(e.dataTransfer.files[0]);
+});
+fileInputV.addEventListener('change', e => { if (e.target.files[0]) setVFile(e.target.files[0]); });
+document.getElementById('ref-hash').addEventListener('input', updateBtn);
+
+function setVFile(file) {
+  vFile = file;
+  document.getElementById('v-name').textContent = file.name;
+  document.getElementById('v-size').textContent = formatSize(file.size);
+  document.getElementById('v-icon').textContent = getFileIcon(file.name);
+  document.getElementById('file-loaded').classList.add('visible');
+  hideSemaforo(); updateBtn();
+}
+
+function updateBtn() {
+  document.getElementById('btn-verify').disabled =
+    !(vFile && document.getElementById('ref-hash').value.trim().length > 0);
+}
+
+function selectAlgo(pill) {
+  document.querySelectorAll('.algo-pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  selectedAlgo = pill.dataset.algo;
+}
+
+function detectAlgo(hash) {
+  return hash.trim().length === 128 ? 'sha512' : 'sha256';
+}
+
+async function verify() {
+  const refHash = document.getElementById('ref-hash').value.trim().toLowerCase();
+  if (!vFile || !refHash) return;
+  const btn = document.getElementById('btn-verify');
+  btn.disabled = true; btn.textContent = '⏳ Computing…';
+  hideSemaforo();
+  const progressWrap = document.getElementById('v-progress');
+  const progressBar  = document.getElementById('v-progress-bar');
+  progressWrap.classList.add('visible');
+  const startTime = performance.now();
+  try {
+    const buffer = await readFileBuffer(vFile, pct => { progressBar.style.width = pct + '%'; });
+    let algo = selectedAlgo === 'auto' ? detectAlgo(refHash) : selectedAlgo;
+    if (algo === 'blake2b') {
+      alert('BLAKE2b is not available in the browser.\nUse:\npython3 -c "import hashlib; print(hashlib.blake2b(open(\'file\',\'rb\').read(), digest_size=32).hexdigest())"');
+      return;
+    }
+    const calcHash = await computeHash(buffer, algo);
+    const elapsed = ((performance.now() - startTime) / 1000).toFixed(3);
+    showSemaforo(calcHash.toLowerCase() === refHash.toLowerCase(), calcHash, refHash, algo, elapsed);
+  } catch (err) { alert('Error: ' + err.message); }
+  finally {
+    btn.disabled = false; btn.textContent = '🔍 Verify integrity';
+    progressWrap.classList.remove('visible'); progressBar.style.width = '0%';
+  }
+}
+
+function showSemaforo(match, calcHash, refHash, algo, elapsed) {
+  const sem = document.getElementById('semaforo');
+  sem.className = 'semaforo visible ' + (match ? 'ok' : 'fail');
+  document.getElementById('sem-light').textContent = match ? '🟢' : '🔴';
+  document.getElementById('sem-title').textContent = match ? 'Authentic file ✓' : 'File does not match ✗';
+  document.getElementById('sem-text').textContent = match
+    ? 'The computed hash perfectly matches the hash in the certificate. The file is authentic and has not been modified since the artist signed it.'
+    : 'The computed hash does NOT match the certificate hash. The file may have been modified, corrupted, or you may be verifying the wrong file or using the wrong algorithm.';
+  const detail = document.getElementById('hash-detail');
+  detail.style.display = 'block';
+  const calcEl = document.getElementById('calc-hash-display');
+  const refEl  = document.getElementById('ref-hash-display');
+  calcEl.textContent = calcHash; refEl.textContent = refHash;
+  calcEl.className = 'hash-row-value ' + (match ? 'match' : 'mismatch');
+  refEl.className  = 'hash-row-value ' + (match ? 'match' : 'mismatch');
+  if (!match) {
+    let firstDiff = -1;
+    for (let i = 0; i < Math.max(calcHash.length, refHash.length); i++) {
+      if (calcHash[i] !== refHash[i]) { firstDiff = i; break; }
+    }
+    document.getElementById('diff-info').textContent = firstDiff >= 0
+      ? `First difference at character ${firstDiff + 1} of ${calcHash.length}. Algorithm used: ${algo.toUpperCase()}.`
+      : `Length mismatch: computed ${calcHash.length} characters, reference ${refHash.length} characters.`;
+  } else { document.getElementById('diff-info').textContent = ''; }
+  document.getElementById('v-timing').textContent = `⏱️ Computed in ${elapsed}s · Algorithm: ${algo.toUpperCase()}`;
+}
+
+function hideSemaforo() { document.getElementById('semaforo').className = 'semaforo'; }
+
+function readFileBuffer(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onprogress = e => { if (e.lengthComputable) onProgress(Math.round(e.loaded/e.total*95)); };
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = () => reject(new Error('File read error'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function computeHash(buffer, algo) {
+  if (algo === 'sha256') return bufferToHex(await crypto.subtle.digest('SHA-256', buffer));
+  if (algo === 'sha512') return bufferToHex(await crypto.subtle.digest('SHA-512', buffer));
+  throw new Error('Unsupported algorithm: ' + algo);
+}
+
+function bufferToHex(buffer) {
+  return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(2) + ' KB';
+  if (bytes < 1073741824) return (bytes/1048576).toFixed(2) + ' MB';
+  return (bytes/1073741824).toFixed(2) + ' GB';
+}
+
+function getFileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  const icons = { pdf:'📄', jpg:'🖼️', jpeg:'🖼️', png:'🖼️', tiff:'🖼️', tif:'🖼️',
+    nef:'📷', cr2:'📷', arw:'�

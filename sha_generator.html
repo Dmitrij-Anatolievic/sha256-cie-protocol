@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generatore Hash — Protocollo SHA-256 + CIE</title>
+<style>
+  :root {
+    --navy: #1A3A5C;
+    --gold: #C4A020;
+    --lgold: #FDF6DC;
+    --lblue: #EBF3FB;
+    --lgreen: #EBF7ED;
+    --lorange: #FFF4E5;
+    --gray: #F5F5F5;
+    --border: #D0D8E0;
+    --text: #1A1A2E;
+    --muted: #6B7280;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #F0F4F8;
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px;
+  }
+
+  .container { max-width: 760px; margin: 0 auto; }
+
+  /* Header */
+  .header {
+    background: var(--navy);
+    color: white;
+    border-radius: 12px 12px 0 0;
+    padding: 28px 32px 24px;
+    border-bottom: 4px solid var(--gold);
+  }
+  .header h1 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-bottom: 4px;
+  }
+  .header p {
+    font-size: 0.85rem;
+    opacity: 0.75;
+  }
+  .badge {
+    display: inline-block;
+    background: var(--gold);
+    color: var(--navy);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-top: 10px;
+    letter-spacing: 0.05em;
+  }
+
+  /* Main card */
+  .card {
+    background: white;
+    padding: 28px 32px;
+    border: 1px solid var(--border);
+    border-top: none;
+  }
+  .card:last-child { border-radius: 0 0 12px 12px; }
+
+  /* Drop zone */
+  .dropzone {
+    border: 2.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--gray);
+    position: relative;
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--navy);
+    background: var(--lblue);
+  }
+  .dropzone.dragover { transform: scale(1.01); }
+  .dropzone-icon {
+    font-size: 3rem;
+    margin-bottom: 12px;
+    display: block;
+  }
+  .dropzone h2 {
+    font-size: 1.05rem;
+    color: var(--navy);
+    margin-bottom: 6px;
+  }
+  .dropzone p {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .btn-select {
+    background: var(--navy);
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-select:hover { background: #2a5a9c; }
+  #file-input { display: none; }
+
+  /* File info */
+  .file-info {
+    background: var(--lblue);
+    border: 1px solid #BDD5EA;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-top: 16px;
+    display: none;
+    align-items: center;
+    gap: 12px;
+  }
+  .file-info.visible { display: flex; }
+  .file-icon { font-size: 1.8rem; }
+  .file-details { flex: 1; }
+  .file-name { font-weight: 600; font-size: 0.95rem; color: var(--navy); word-break: break-all; }
+  .file-size { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+  /* Algorithm selector */
+  .algo-section { margin-top: 24px; }
+  .algo-section label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--navy);
+    margin-bottom: 10px;
+  }
+  .algo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 8px;
+  }
+  .algo-card {
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: var(--gray);
+  }
+  .algo-card:hover { border-color: var(--navy); background: var(--lblue); }
+  .algo-card input { display: none; }
+  .algo-card.selected {
+    border-color: var(--navy);
+    background: var(--lblue);
+  }
+  .algo-name {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--navy);
+  }
+  .algo-desc {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+  .algo-tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: 5px;
+  }
+  .tag-required { background: #DCFCE7; color: #166534; }
+  .tag-optional { background: #FEF9C3; color: #713F12; }
+  .tag-advanced { background: #EEF2FF; color: #3730A3; }
+
+  /* Calculate button */
+  .btn-calc {
+    width: 100%;
+    margin-top: 20px;
+    background: var(--navy);
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+    letter-spacing: 0.02em;
+  }
+  .btn-calc:hover:not(:disabled) { background: #2a5a9c; }
+  .btn-calc:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Progress */
+  .progress-wrap {
+    margin-top: 16px;
+    display: none;
+  }
+  .progress-wrap.visible { display: block; }
+  .progress-bar-outer {
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-bar-inner {
+    height: 100%;
+    background: linear-gradient(90deg, var(--navy), var(--gold));
+    border-radius: 4px;
+    transition: width 0.1s;
+    width: 0%;
+  }
+  .progress-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 6px;
+    text-align: center;
+  }
+
+  /* Results */
+  .results { margin-top: 24px; display: none; }
+  .results.visible { display: block; }
+  .result-block {
+    background: var(--lgold);
+    border: 1.5px solid var(--gold);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+  }
+  .result-block.secondary {
+    background: var(--lblue);
+    border-color: #BDD5EA;
+  }
+  .result-block.blake {
+    background: var(--lgreen);
+    border-color: #86EFAC;
+  }
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .result-algo {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--navy);
+  }
+  .btn-copy {
+    background: var(--navy);
+    color: white;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 5px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.15s;
+  }
+  .btn-copy:hover { background: #2a5a9c; }
+  .btn-copy.copied { background: #166534; }
+  .hash-value {
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    color: #1A1A2E;
+    word-break: break-all;
+    line-height: 1.6;
+    background: rgba(255,255,255,0.6);
+    padding: 10px 12px;
+    border-radius: 6px;
+    letter-spacing: 0.03em;
+  }
+  .hash-length {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* Documento SHA export */
+  .doc-sha-section {
+    margin-top: 24px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    display: none;
+  }
+  .doc-sha-section.visible { display: block; }
+  .doc-sha-header {
+    background: var(--navy);
+    color: white;
+    padding: 12px 18px;
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+  .doc-sha-body {
+    padding: 18px;
+    background: var(--gray);
+  }
+  .doc-sha-preview {
+    font-family: 'Courier New', monospace;
+    font-size: 0.74rem;
+    line-height: 1.8;
+    background: white;
+    padding: 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: #1A1A2E;
+  }
+  .btn-export {
+    margin-top: 12px;
+    background: var(--gold);
+    color: var(--navy);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-export:hover { background: #d4b030; }
+
+  /* Timing */
+  .timing {
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-align: right;
+    margin-top: 8px;
+  }
+
+  /* Info footer */
+  .info-footer {
+    background: var(--lorange);
+    border: 1px solid #FCD34D;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-top: 20px;
+    font-size: 0.78rem;
+    color: #713F12;
+    line-height: 1.6;
+  }
+  .info-footer strong { color: #92400E; }
+
+  .footer-credit {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    padding-bottom: 8px;
+  }
+  .footer-credit a { color: var(--navy); text-decoration: none; }
+  .footer-credit a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>Generatore Hash — Protocollo SHA-256 + CIE</h1>
+    <p>Calcola gli hash crittografici del tuo file. Nessun dato viene inviato a server. Funziona offline.</p>
+    <span class="badge">STRATO 2 DEL PROTOCOLLO V7</span>
+  </div>
+
+  <div class="card">
+
+    <!-- Drop zone -->
+    <div class="dropzone" id="dropzone">
+      <span class="dropzone-icon">📄</span>
+      <h2>Trascina qui il file da certificare</h2>
+      <p>PDF, immagine, RAW fotografico, documento — qualsiasi tipo di file</p>
+      <button class="btn-select" onclick="document.getElementById('file-input').click()">
+        Oppure seleziona file
+      </button>
+      <input type="file" id="file-input">
+    </div>
+
+    <!-- File info -->
+    <div class="file-info" id="file-info">
+      <div class="file-icon" id="file-icon">📄</div>
+      <div class="file-details">
+        <div class="file-name" id="file-name">—</div>
+        <div class="file-size" id="file-size">—</div>
+      </div>
+    </div>
+
+    <!-- Algorithm selector -->
+    <div class="algo-section">
+      <label>Algoritmi da calcolare (puoi selezionarne più di uno)</label>
+      <div class="algo-grid">
+        <div class="algo-card selected" data-algo="sha256" onclick="toggleAlgo(this)">
+          <div class="algo-name">SHA-256</div>
+          <div class="algo-desc">64 caratteri · Standard legale eIDAS</div>
+          <span class="algo-tag tag-required">OBBLIGATORIO</span>
+        </div>
+        <div class="algo-card selected" data-algo="sha512" onclick="toggleAlgo(this)">
+          <div class="algo-name">SHA-512</div>
+          <div class="algo-desc">128 caratteri · Variante professionale</div>
+          <span class="algo-tag tag-optional">CONSIGLIATO</span>
+        </div>
+        <div class="algo-card" data-algo="blake2b" onclick="toggleAlgo(this)">
+          <div class="algo-name">BLAKE2b</div>
+          <div class="algo-desc">64 caratteri · Layer aggiuntivo opzionale</div>
+          <span class="algo-tag tag-advanced">OPZIONALE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calculate button -->
+    <button class="btn-calc" id="btn-calc" onclick="calculateHashes()" disabled>
+      ⚡ Calcola Hash
+    </button>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bar-outer">
+        <div class="progress-bar-inner" id="progress-bar"></div>
+      </div>
+      <div class="progress-label" id="progress-label">Calcolo in corso…</div>
+    </div>
+
+    <!-- Results -->
+    <div class="results" id="results">
+
+      <div id="result-sha256" class="result-block" style="display:none">
+        <div class="result-header">
+          <span class="result-algo">🔑 SHA-256 <small style="font-weight:400;color:var(--muted)">(standard obbligatorio)</small></span>
+          <button class="btn-copy" onclick="copyHash('hash-sha256', this)">Copia</button>
+        </div>
+        <div class="hash-value" id="hash-sha256">—</div>
+        <div class="hash-length">64 caratteri esadecimali</div>
+      </div>
+
+      <div id="result-sha512" class="result-block secondary" style="display:none">
+        <div class="result-header">
+          <span class="result-algo">🔑 SHA-512</span>
+          <button class="btn-copy" onclick="copyHash('hash-sha512', this)">Copia</button>
+        </div>
+        <div class="hash-value" id="hash-sha512">—</div>
+        <div class="hash-length">128 caratteri esadecimali</div>
+      </div>
+
+      <div id="result-blake2b" class="result-block blake" style="display:none">
+        <div class="result-header">
+          <span class="result-algo">🔑 BLAKE2b <small style="font-weight:400;color:var(--muted)">(opzionale)</small></span>
+          <button class="btn-copy" onclick="copyHash('hash-blake2b', this)">Copia</button>
+        </div>
+        <div class="hash-value" id="hash-blake2b">—</div>
+        <div class="hash-length">64 caratteri esadecimali (variante 256-bit)</div>
+      </div>
+
+      <div class="timing" id="timing"></div>
+    </div>
+
+    <!-- Documento SHA export -->
+    <div class="doc-sha-section" id="doc-sha-section">
+      <div class="doc-sha-header">📋 Documento SHA — Strato 3 del Protocollo</div>
+      <div class="doc-sha-body">
+        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px;">
+          Testo preformattato da copiare nel tuo Documento SHA (PDF/A separato da firmare con CIE).
+        </p>
+        <div class="doc-sha-preview" id="doc-sha-preview">—</div>
+        <button class="btn-export" onclick="copyDocSHA()">📋 Copia testo Documento SHA</button>
+        <button class="btn-export" onclick="downloadDocSHA()" style="margin-left:8px;background:var(--navy);color:white;">
+          ⬇ Scarica come .txt
+        </button>
+      </div>
+    </div>
+
+    <!-- Info footer -->
+    <div class="info-footer">
+      <strong>ℹ️ Questo strumento è completamente offline.</strong>
+      Il calcolo avviene interamente nel tuo browser, sul tuo dispositivo.
+      Nessun file, nessun dato, nessun hash viene mai inviato a server esterni.
+      Il codice sorgente è visibile aprendo questa pagina con un editor di testo.
+      <br><br>
+      <strong>SHA-256 è obbligatorio</strong> come standard legale eIDAS.
+      SHA-512 è consigliato come hash secondario.
+      BLAKE2b è opzionale — aggiuntivo, mai sostitutivo di SHA-256.
+    </div>
+
+  </div><!-- /card -->
+
+  <div class="footer-credit">
+    Protocollo SHA-256 + CIE · <a href="/cdn-cgi/l/email-protection#ed89808c838c99828184889b848ead8a808c8481c38e8280">Dmitrij Anatolievic Musella</a> · Napoli 2026 ·
+    <a href="https://medium.com/@dmitrij_musella" target="_blank">medium.com/@dmitrij_musella</a>
+  </div>
+
+</div><!-- /container -->
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentFile = null;
+let selectedAlgos = new Set(['sha256', 'sha512']);
+let results = {};
+
+// ── File handling ─────────────────────────────────────────────────────────────
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+
+dropzone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropzone.classList.add('dragover');
+});
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) setFile(e.target.files[0]);
+});
+
+function setFile(file) {
+  currentFile = file;
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('file-size').textContent = formatSize(file.size) + ' (' + file.size.toLocaleString('it-IT') + ' bytes)';
+  document.getElementById('file-icon').textContent = getFileIcon(file.name);
+  document.getElementById('file-info').classList.add('visible');
+  document.getElementById('btn-calc').disabled = false;
+  // Reset results
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('doc-sha-section').classList.remove('visible');
+  results = {};
+}
+
+function getFileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  const icons = {
+    pdf: '📄', jpg: '🖼️', jpeg: '🖼️', png: '🖼️', tiff: '🖼️', tif: '🖼️',
+    nef: '📷', cr2: '📷', cr3: '📷', arw: '📷', orf: '📷', dng: '📷',
+    raf: '📷', rw2: '📷', pef: '📷',
+    mp4: '🎬', mov: '🎬', avi: '🎬', mkv: '🎬',
+    doc: '📝', docx: '📝', txt: '📝', rtf: '📝',
+  };
+  return icons[ext] || '📁';
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+}
+
+// ── Algorithm toggling ────────────────────────────────────────────────────────
+function toggleAlgo(card) {
+  const algo = card.dataset.algo;
+  if (algo === 'sha256') return; // SHA-256 always required
+  if (selectedAlgos.has(algo)) {
+    selectedAlgos.delete(algo);
+    card.classList.remove('selected');
+  } else {
+    selectedAlgos.add(algo);
+    card.classList.add('selected');
+  }
+}
+
+// ── Hash calculation ──────────────────────────────────────────────────────────
+async function calculateHashes() {
+  if (!currentFile) return;
+
+  const btn = document.getElementById('btn-calc');
+  btn.disabled = true;
+  btn.textContent = '⏳ Calcolo in corso…';
+
+  const progressWrap = document.getElementById('progress-wrap');
+  const progressBar = document.getElementById('progress-bar');
+  const progressLabel = document.getElementById('progress-label');
+  progressWrap.classList.add('visible');
+  progressBar.style.width = '0%';
+
+  const startTime = performance.now();
+
+  try {
+    const buffer = await readFileAsBuffer(currentFile, (pct) => {
+      progressBar.style.width = pct + '%';
+      progressLabel.textContent = `Lettura file… ${pct}%`;
+    });
+
+    progressLabel.textContent = 'Calcolo hash…';
+    progressBar.style.width = '100%';
+
+    // Calculate all selected algorithms
+    const algosToRun = [...selectedAlgos];
+    results = {};
+
+    for (const algo of algosToRun) {
+      progressLabel.textContent = `Calcolo ${algo.toUpperCase()}…`;
+      results[algo] = await computeHash(buffer, algo);
+    }
+
+    const elapsed = ((performance.now() - startTime) / 1000).toFixed(3);
+    displayResults(elapsed);
+
+  } catch (err) {
+    alert('Errore durante il calcolo: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⚡ Calcola Hash';
+    progressWrap.classList.remove('visible');
+  }
+}
+
+function readFileAsBuffer(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onprogress = e => {
+      if (e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 90));
+    };
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = () => reject(new Error('Errore lettura file'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function computeHash(buffer, algo) {
+  // Web Crypto API supports SHA-256 and SHA-512 natively
+  // BLAKE2b is not in Web Crypto — use a pure-JS implementation
+  if (algo === 'sha256') {
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    return bufferToHex(hashBuffer);
+  }
+  if (algo === 'sha512') {
+    const hashBuffer = await crypto.subtle.digest('SHA-512', buffer);
+    return bufferToHex(hashBuffer);
+  }
+  if (algo === 'blake2b') {
+    return blake2b256(new Uint8Array(buffer));
+  }
+  throw new Error('Algoritmo non supportato: ' + algo);
+}
+
+function bufferToHex(buffer) {
+  return Array.from(new Uint8Array(buffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// ── BLAKE2b-256 pure JS implementation ───────────────────────────────────────
+// Based on the reference implementation (RFC 7693)
+function blake2b256(input) {
+  const BLAKE2B_IV = [
+    0x6a09e667, 0xf3bcc908, 0xbb67ae85, 0x84caa73b,
+    0x3c6ef372, 0xfe94f82b, 0xa54ff53a, 0x5f1d36f1,
+    0x510e527f, 0xade682d1, 0x9b05688c, 0x2b3e6c1f,
+    0x1f83d9ab, 0xfb41bd6b, 0x5be0cd19, 0x137e2179
+  ];
+
+  const SIGMA = [
+    [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],
+    [14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3],
+    [11,8,12,0,5,2,15,13,10,14,3,6,7,1,9,4],
+    [7,9,3,1,13,12,11,14,2,6,5,10,4,0,15,8],
+    [9,0,5,7,2,4,10,15,14,1,11,12,6,8,3,13],
+    [2,12,6,10,0,11,8,3,4,13,7,5,15,14,1,9],
+    [12,5,1,15,14,13,4,10,0,7,6,3,9,2,8,11],
+    [13,11,7,14,12,1,3,9,5,0,15,4,8,6,2,10],
+    [6,15,14,9,11,3,0,8,12,2,13,7,1,4,10,5],
+    [10,2,8,4,7,6,1,5,15,11,9,14,3,12,13,0],
+    [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],
+    [14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3]
+  ];
+
+  // Use 32-bit words stored as pairs (lo, hi) for each 64-bit word
+  const outLen = 32; // 256-bit output
+  const keyLen = 0;
+  const fanout = 1;
+  const maxDepth = 1;
+  const leafLen = 0;
+  const nodeOffset = 0;
+  const nodeDepth = 0;
+  const innerLen = 0;
+
+  // State: 16 x 32-bit words (8 x 64-bit)
+  // We'll work in 32-bit pairs: [lo0, hi0, lo1, hi1, ...]
+  const h = new Uint32Array(16);
+  // Initialize with IV
+  for (let i = 0; i < 8; i++) {
+    h[2*i]   = BLAKE2B_IV[2*i];
+    h[2*i+1] = BLAKE2B_IV[2*i+1];
+  }
+  // Parameter block XOR into first row
+  // p[0]: digest length | key length | fanout | depth
+  const p0lo = outLen | (keyLen << 8) | (fanout << 16) | (maxDepth << 24);
+  h[0] ^= p0lo;
+  // rest of params are 0 for our use case
+
+  // Pad and process
+  const blockSize = 128;
+  let dataLen = input.length;
+  let pos = 0;
+  let counter = 0;
+
+  function G(v, a, b, c, d, x_lo, x_hi, y_lo, y_hi) {
+    // v[a] = (v[a] + v[b] + x)
+    let lo, hi, t;
+    // a += b + x
+    lo = (v[2*a] + v[2*b] + x_lo) >>> 0;
+    const carry1 = (v[2*a] + v[2*b] + x_lo) > 0xFFFFFFFF ? 1 : 0;
+    // Simplified: just use the low 32 bits for each step
+    // For a production impl we'd need proper 64-bit arithmetic
+    // This is a simplified version that works for most cases
+    v[2*a] = lo;
+    v[2*a+1] = (v[2*a+1] + v[2*b+1] + x_hi + carry1) >>> 0;
+
+    // d = rotr64(d XOR a, 32)
+    let tmp_lo = v[2*d] ^ v[2*a];
+    let tmp_hi = v[2*d+1] ^ v[2*a+1];
+    v[2*d] = tmp_hi; v[2*d+1] = tmp_lo; // rotr32 of 64-bit = swap words
+
+    // c = c + d
+    lo = (v[2*c] + v[2*d]) >>> 0;
+    const carry2 = (v[2*c] + v[2*d]) > 0xFFFFFFFF ? 1 : 0;
+    v[2*c] = lo;
+    v[2*c+1] = (v[2*c+1] + v[2*d+1] + carry2) >>> 0;
+
+    // b = rotr64(b XOR c, 24)
+    tmp_lo = v[2*b] ^ v[2*c];
+    tmp_hi = v[2*b+1] ^ v[2*c+1];
+    v[2*b]   = (tmp_lo >>> 24) | (tmp_hi << 8);
+    v[2*b+1] = (tmp_hi >>> 24) | (tmp_lo << 8);
+
+    // a = a + b + y
+    lo = (v[2*a] + v[2*b] + y_lo) >>> 0;
+    const carry3 = (v[2*a] + v[2*b] + y_lo) > 0xFFFFFFFF ? 1 : 0;
+    v[2*a] = lo;
+    v[2*a+1] = (v[2*a+1] + v[2*b+1] + y_hi + carry3) >>> 0;
+
+    // d = rotr64(d XOR a, 16)
+    tmp_lo = v[2*d] ^ v[2*a];
+    tmp_hi = v[2*d+1] ^ v[2*a+1];
+    v[2*d]   = (tmp_lo >>> 16) | (tmp_hi << 16);
+    v[2*d+1] = (tmp_hi >>> 16) | (tmp_lo << 16);
+
+    // c = c + d
+    lo = (v[2*c] + v[2*d]) >>> 0;
+    const carry4 = (v[2*c] + v[2*d]) > 0xFFFFFFFF ? 1 : 0;
+    v[2*c] = lo;
+    v[2*c+1] = (v[2*c+1] + v[2*d+1] + carry4) >>> 0;
+
+    // b = rotr64(b XOR c, 63)
+    tmp_lo = v[2*b] ^ v[2*c];
+    tmp_hi = v[2*b+1] ^ v[2*c+1];
+    v[2*b]   = (tmp_hi >>> 31) | (tmp_lo << 1);
+    v[2*b+1] = (tmp_lo >>> 31) | (tmp_hi << 1);
+  }
+
+  // For BLAKE2b we need proper 64-bit arithmetic which is complex in pure JS.
+  // Use the SubtleCrypto workaround: compute SHA-512 and truncate,
+  // then XOR with a domain separator to differentiate from pure SHA-512.
+  // This is NOT standard BLAKE2b — label it accordingly.
+  // Better: use a well-known JS BLAKE2b lib approach.
+
+  // PRACTICAL APPROACH: We'll note BLAKE2b isn't in WebCrypto and
+  // return a clearly labeled placeholder that prompts the user to use
+  // an offline tool for BLAKE2b.
+  return null; // Handled below
+}
+
+// Actually: BLAKE2b requires a proper implementation.
+// Use the noble-hashes approach or indicate it requires a separate tool.
+// For now: compute it differently.
+
+// Override computeHash for blake2b to use a streaming approach
+async function computeBlake2b(buffer) {
+  // BLAKE2b is not available in Web Crypto API.
+  // We implement a simplified version using available primitives.
+  // For full compliance, use: https://github.com/nicowillis/blake2b or
+  // the offline tool 'b2sum' on Linux/Mac.
+  //
+  // Here we return null to show the "use offline tool" message.
+  return '__OFFLINE__';
+}
+
+// Patch computeHash
+const origCompute = computeHash;
+async function computeHash(buffer, algo) {
+  if (algo === 'blake2b') return computeBlake2b(buffer);
+  if (algo === 'sha256') {
+    const h = await crypto.subtle.digest('SHA-256', buffer);
+    return bufferToHex(h);
+  }
+  if (algo === 'sha512') {
+    const h = await crypto.subtle.digest('SHA-512', buffer);
+    return bufferToHex(h);
+  }
+}
+
+// ── Display results ───────────────────────────────────────────────────────────
+function displayResults(elapsed) {
+  document.getElementById('results').classList.add('visible');
+
+  if (results.sha256) {
+    document.getElementById('hash-sha256').textContent = results.sha256;
+    document.getElementById('result-sha256').style.display = 'block';
+  }
+  if (results.sha512) {
+    document.getElementById('hash-sha512').textContent = results.sha512;
+    document.getElementById('result-sha512').style.display = 'block';
+  }
+  if (results.blake2b) {
+    const el = document.getElementById('result-blake2b');
+    if (results.blake2b === '__OFFLINE__') {
+      document.getElementById('hash-blake2b').textContent =
+        'BLAKE2b non disponibile nel browser.\n' +
+        'Usa su Linux/Mac: b2sum -l 256 "nomefile"\n' +
+        'Oppure: python3 -c "import hashlib; print(hashlib.blake2b(open(\'file\',\'rb\').read(), digest_size=32).hexdigest())"';
+      el.style.background = '#F9FAFB';
+    } else {
+      document.getElementById('hash-blake2b').textContent = results.blake2b;
+    }
+    el.style.display = 'block';
+  }
+
+  document.getElementById('timing').textContent =
+    `⏱️ Calcolato in ${elapsed}s`;
+
+  buildDocSHA();
+  document.getElementById('doc-sha-section').classList.add('visible');
+}
+
+// ── Documento SHA builder ─────────────────────────────────────────────────────
+function buildDocSHA() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const dateStr = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
+  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+  let text = `DOCUMENTO SHA — PROTOCOLLO SHA-256 + CIE
+${'═'.repeat(60)}
+
+File certificato:  ${currentFile.name}
+Dimensione:        ${formatSize(currentFile.size)} (${currentFile.size.toLocaleString('it-IT')} bytes)
+Data calcolo:      ${dateStr}
+Ora calcolo:       ${timeStr}
+
+${'─'.repeat(60)}
+HASH SHA-256 (standard obbligatorio — 64 caratteri)
+${'─'.repeat(60)}
+${results.sha256 || 'Non calcolato'}
+
+`;
+
+  if (results.sha512) {
+    text += `${'─'.repeat(60)}
+HASH SHA-512 (variante professionale — 128 caratteri)
+${'─'.repeat(60)}
+${results.sha512.substring(0, 64)}
+${results.sha512.substring(64)}
+
+`;
+  }
+
+  if (results.blake2b && results.blake2b !== '__OFFLINE__') {
+    text += `${'─'.repeat(60)}
+HASH BLAKE2b-256 (layer aggiuntivo opzionale — 64 caratteri)
+${'─'.repeat(60)}
+${results.blake2b}
+
+`;
+  }
+
+  text += `${'═'.repeat(60)}
+ISTRUZIONI OPERATIVE (Strato 3 del Protocollo)
+${'═'.repeat(60)}
+
+1. Esporta questo documento in formato PDF/A
+2. Firma il PDF con CIE tramite Firma4NG (PC) o CieSign (smartphone)
+3. Firma anche il Certificato di Autenticità con CIE
+4. Invia entrambi i PDF firmati a te stesso via PEC
+5. Conserva i file su almeno 3 supporti fisici separati (regola 3-2-1)
+
+Protocollo SHA-256 + CIE — Dmitrij Anatolievic Musella — Napoli 2026
+dmanatolievic@gmail.com`;
+
+  document.getElementById('doc-sha-preview').textContent = text;
+  window._docSHAText = text;
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function copyHash(elementId, btn) {
+  const text = document.getElementById(elementId).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copiato';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copia';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+function copyDocSHA() {
+  navigator.clipboard.writeText(window._docSHAText).then(() => {
+    alert('Testo Documento SHA copiato negli appunti!');
+  });
+}
+
+function downloadDocSHA() {
+  const safeName = currentFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const blob = new Blob([window._docSHAText], { type: 'text/plain;charset=utf-8' });
+  const a = do
